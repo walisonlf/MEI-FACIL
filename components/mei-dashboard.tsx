@@ -49,8 +49,9 @@ import {
   getMeiSettings,
   updateDasStatus,
 } from "@/app/actions"
+import { signOutAction } from "@/app/auth/actions"; // The server action
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter } from "next/navigation" // For redirection
 import jsPDF from "jspdf"
 import { applyPlugin } from "jspdf-autotable"
 
@@ -117,6 +118,7 @@ export default function MeiDashboardComponent({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const annualLimit = 81000
   const hasProAccess = userPlan === "paid" || isAdmin
@@ -146,9 +148,19 @@ export default function MeiDashboardComponent({
     loadData()
   }, [])
 
-  const handleLogout = () => {
-    router.push("/")
-  }
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    const result = await signOutAction();
+    if (result.error) {
+      console.error("Logout error:", result.error);
+      // Optionally, show an alert to the user:
+      // alert(`Erro ao sair: ${result.error}`);
+      // Fallthrough to redirect anyway to ensure client state is cleared.
+    }
+    router.push("/login");
+    router.refresh(); // Force a refresh to clear any cached user data on the client
+    // setIsLoggingOut(false); // Component will unmount or redirect, so not strictly necessary
+  };
 
   const resetForm = () => {
     setDescription("")
@@ -491,9 +503,12 @@ export default function MeiDashboardComponent({
               variant="ghost"
               size="icon"
               onClick={handleLogout}
+              disabled={isLoggingOut} // Disable button when logout is in progress
               className="text-slate-600 dark:text-slate-400 hover:text-primary"
+              aria-label="Sair"
             >
-              <LogOut className="h-5 w-5" /> <span className="sr-only">Sair</span>
+              {isLoggingOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
+              <span className="sr-only">Sair</span>
             </Button>
           </div>
         </div>
